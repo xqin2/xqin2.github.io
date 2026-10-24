@@ -74,6 +74,7 @@ nav a:hover { color: var(--link); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font: 500 34px/1.25 var(--serif); letter-spacing: -.4px; margin-bottom: 30px; }
 h2 { font: 500 25px/1.35 var(--serif); letter-spacing: -.2px; margin-bottom: 24px; }
+.section-heading { font: 500 25px/1.35 var(--serif); letter-spacing: -.2px; margin-bottom: 24px; }
 h3 { font-weight: 500; }
 p { margin-bottom: 19px; }
 .page { min-height: 62vh; padding: 53px 0 73px; }
@@ -137,7 +138,7 @@ footer a { color: var(--muted); }
   .theme-toggle { grid-area: theme; justify-self: end; }
   .page { padding: 37px 0 55px; }
   h1 { font-size: 32px; margin-bottom: 23px; }
-  h2 { font-size: 23px; }
+  h2, .section-heading { font-size: 23px; }
   .paper { grid-template-columns: 21px minmax(0, 1fr); gap: 7px; }
   .paper h3 { font-size: 18px; }
   .authors { font-size: 16.5px; }
