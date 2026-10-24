@@ -57,6 +57,7 @@ nav a:hover { color: var(--link); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font-size: 34px; font-weight: 500; line-height: 1.2; letter-spacing: -.55px; margin-bottom: 13px; }
 h2 { font-size: 20px; font-weight: 500; line-height: 1.4; letter-spacing: .035em; margin-bottom: 23px; }
+.light { color: var(--muted); font-weight: 400; }
 p { margin-bottom: 18px; }
 .about { padding: 42px 0 38px; }
 .role { font-size: 18px; line-height: 1.55; margin-bottom: 24px; }
