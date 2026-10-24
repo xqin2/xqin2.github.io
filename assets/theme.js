@@ -1,4 +1,4 @@
-/* Apply the preference before CSS is painted. The page works without JS. */
+/* Display a sun in light mode and a moon in dark mode. */
 (function () {
   "use strict";
   var key = "xqin2-color-scheme";
@@ -10,13 +10,15 @@
   try {
     var stored = window.localStorage.getItem(key);
     if (valid(stored)) preference = stored;
-  } catch (_) { /* Storage can be blocked. In-memory switching still works. */ }
+  } catch (_) { /* Storage may be blocked in private browsing. */ }
   function apply() {
     var theme = preference || (media && media.matches ? "dark" : "light");
     root.setAttribute("data-theme", theme);
     if (button) {
+      var label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
       button.setAttribute("aria-pressed", String(theme === "dark"));
-      button.title = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+      button.setAttribute("aria-label", label);
+      button.title = label;
     }
   }
   apply();

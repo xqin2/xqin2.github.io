@@ -1,2 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://xqin2.github.io/</loc><lastmod>2026-10-24</lastmod></url></urlset>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://xqin2.github.io/</loc><lastmod>2026-10-24</lastmod></url>
+  <url><loc>https://xqin2.github.io/education/</loc><lastmod>2026-10-24</lastmod></url>
+  <url><loc>https://xqin2.github.io/research/</loc><lastmod>2026-10-24</lastmod></url>
+</urlset>
