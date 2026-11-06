@@ -96,12 +96,12 @@ p { margin-bottom: 19px; }
 }
 .subsection + .subsection { margin-top: 55px; padding-top: 35px; border-top: 1px solid var(--line); }
 .light { color: var(--muted); font-weight: 400; }
-.papers { margin: 0; padding: 0; list-style: none; counter-reset: paper; }
+.papers { margin: 0; padding: 0; list-style: none; }
 .paper {
   display: grid; grid-template-columns: 27px minmax(0, 1fr);
-  gap: 11px; counter-increment: paper -1; margin-bottom: 28px;
+  gap: 11px; margin-bottom: 28px;
 }
-.paper::before { content: counter(paper) "."; font: 13px/1.8 var(--mono); color: var(--muted); }
+.paper::before { content: attr(data-number) "."; font: 13px/1.8 var(--mono); color: var(--muted); }
 .paper:last-child { margin-bottom: 0; }
 .paper h3 { font-size: 19px; line-height: 1.42; margin-bottom: 5px; }
 .paper h3 a { color: var(--ink); }
