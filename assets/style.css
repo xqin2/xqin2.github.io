@@ -101,7 +101,7 @@ p { margin-bottom: 19px; }
   display: grid; grid-template-columns: 27px minmax(0, 1fr);
   gap: 11px; margin-bottom: 28px;
 }
-.paper::before { content: attr(data-number) "."; font: 13px/1.8 var(--mono); color: var(--muted); }
+.paper-number { font: 13px/1.8 var(--mono); color: var(--muted); }
 .paper:last-child { margin-bottom: 0; }
 .paper h3 { font-size: 19px; line-height: 1.42; margin-bottom: 5px; }
 .paper h3 a { color: var(--ink); }
