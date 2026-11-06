@@ -1,0 +1,37 @@
+name: Mirror public research PDFs
+on:
+  push:
+    paths:
+      - '.github/papers.json'
+      - '.github/workflows/mirror-papers.yml'
+      - '.github/scripts/mirror_papers.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: mirror-public-papers
+  cancel-in-progress: false
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out public website
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - name: Download, validate and link public PDFs
+        run: python3 .github/scripts/mirror_papers.py
+      - name: Commit verified PDFs and link updates
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/papers/ research/index.html .github/paper-mirror-status.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit." >> "$GITHUB_STEP_SUMMARY"
+          else
+            git commit -m "Mirror verified public research PDFs"
+            git push origin HEAD:main
+            echo "Committed verified PDFs and updated local links." >> "$GITHUB_STEP_SUMMARY"
+          fi
