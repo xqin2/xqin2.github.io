@@ -99,7 +99,7 @@ p { margin-bottom: 19px; }
 .papers { margin: 0; padding: 0; list-style: none; counter-reset: paper; }
 .paper {
   display: grid; grid-template-columns: 27px minmax(0, 1fr);
-  gap: 11px; counter-increment: paper; margin-bottom: 28px;
+  gap: 11px; counter-increment: paper -1; margin-bottom: 28px;
 }
 .paper::before { content: counter(paper) "."; font: 13px/1.8 var(--mono); color: var(--muted); }
 .paper:last-child { margin-bottom: 0; }
