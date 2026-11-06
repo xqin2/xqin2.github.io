@@ -1,9 +1,9 @@
 [
   {
     "arxiv": "2603.11301",
-    "filename": "Generalized_SQG_1D_Self_Similar_2026.pdf",
+    "filename": "Generalized_SQG_1D_Self_Similar_2026_journal.pdf",
     "expected_sha256": "619cb3990cae9e96ffc898bd1b97ffd1529b4b4bc8dfe70bb1a191868c27eecb",
-    "status": "installed"
+    "status": "already_installed"
   },
   {
     "arxiv": "2401.14615",
