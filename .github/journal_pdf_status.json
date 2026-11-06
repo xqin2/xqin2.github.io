@@ -1,0 +1,29 @@
+[
+  {
+    "arxiv": "2603.11301",
+    "filename": "Generalized_SQG_1D_Self_Similar_2026.pdf",
+    "expected_sha256": "619cb3990cae9e96ffc898bd1b97ffd1529b4b4bc8dfe70bb1a191868c27eecb",
+    "status": "installed"
+  },
+  {
+    "arxiv": "2401.14615",
+    "filename": "Multiscale_CLM_3DEuler_2025.pdf",
+    "expected_sha256": "76f9105b533e1e3f26947600ee9afb2d8959aaa995aee77ee14af0d4b9499dcd",
+    "status": "retained_existing",
+    "note": "HTTPError: HTTP Error 403: Forbidden"
+  },
+  {
+    "arxiv": "2308.01528",
+    "filename": "Hou_Luo_Smooth_Blowup_2025.pdf",
+    "expected_sha256": "5d381aa269aeaabbb9e84ed39059694677414ac5cc9b052a8adce4704d55af10",
+    "status": "retained_existing",
+    "note": "size mismatch"
+  },
+  {
+    "arxiv": "2305.05895",
+    "filename": "Generalized_CLM_Smooth_Blowup_2024.pdf",
+    "expected_sha256": "654acd043467c2ad7fabe04b958c4fe5912dce9a121776901beda1c4f4b4f9a3",
+    "status": "retained_existing",
+    "note": "size mismatch"
+  }
+]
