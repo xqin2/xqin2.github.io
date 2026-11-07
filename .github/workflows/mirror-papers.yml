@@ -1,37 +1,38 @@
-name: Mirror public research PDFs
+name: Audit public research PDFs (read only)
 on:
   push:
     paths:
       - '.github/papers.json'
+      - '.github/journal_pdf_sources.json'
       - '.github/workflows/mirror-papers.yml'
       - '.github/scripts/mirror_papers.py'
+      - '.github/scripts/test_mirror_papers.py'
+      - 'research/index.html'
+      - 'research/papers/**'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
-  group: mirror-public-papers
+  group: audit-public-papers
   cancel-in-progress: false
 jobs:
-  mirror:
+  audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - name: Check out public website
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          persist-credentials: true
-      - name: Download, validate and link public PDFs
-        run: python3 .github/scripts/mirror_papers.py
-      - name: Commit verified PDFs and link updates
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/papers/ research/index.html .github/paper-mirror-status.json
-          if git diff --cached --quiet; then
-            echo "No changes to commit." >> "$GITHUB_STEP_SUMMARY"
-          else
-            git commit -m "Mirror verified public research PDFs"
-            git push origin HEAD:main
-            echo "Committed verified PDFs and updated local links." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          persist-credentials: false
+      - name: Run offline version-protection tests
+        run: python3 -m unittest discover -s .github/scripts -p 'test_mirror_papers.py' -v
+      - name: Verify all PDF bytes and research links (never change files)
+        run: python3 .github/scripts/mirror_papers.py --report "$RUNNER_TEMP/pdf-integrity-report.json"
+      - name: Preserve current-run audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-audit-${{ github.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/pdf-integrity-report.json
+          if-no-files-found: warn
+          retention-days: 90
