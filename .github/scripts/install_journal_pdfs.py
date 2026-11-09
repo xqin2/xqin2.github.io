@@ -1,104 +1,142 @@
 #!/usr/bin/env python3
-"""Install only exact SHA256 matches for the owner's four journal-version PDFs.
+"""Manual, non-overwriting import for pinned journal PDFs.
 
-The original file bytes are already separately retained in the Git history.
-If a candidate source cannot be retrieved or differs, leave the live file intact.
+Only explicit workflow_dispatch can trigger this code. A completed journal PDF
+is never overwritten or deleted, even when its hash differs from the pin.
+Historical status files are never modified; reports live outside the repo.
 """
+from __future__ import annotations
+import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
-import ssl
+import re
 import tempfile
-import urllib.error
-import urllib.request
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / ".github/journal_pdf_sources.json"
-REPORT = ROOT / ".github/journal_pdf_status.json"
-DEST = ROOT / "research/papers"
 MAX_BYTES = 27 * 1024 * 1024
+PDF_NAME = re.compile(r"[A-Za-z0-9_-]+\.pdf\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
-def sha256(data):
+def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def download(url, insecure=False):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (compatible; AcademicHomepage/1.0)",
-            "Accept": "application/pdf,application/octet-stream;q=0.8,*/*;q=0.1",
-        },
-    )
-    context = ssl._create_unverified_context() if insecure else ssl.create_default_context()
-    with urllib.request.urlopen(req, timeout=60, context=context) as response:
+def valid_pdf(data: bytes) -> bool:
+    return 5120 <= len(data) <= MAX_BYTES and data.startswith(b"%PDF-") and b"%%EOF" in data[-4096:]
+
+
+def download(url: str) -> bytes:
+    if not url.startswith("https://"):
+        raise ValueError("Only HTTPS PDF sources are accepted")
+    request = Request(url, headers={"User-Agent": "XiangQinHomepage/1.0", "Accept": "application/pdf,*/*;q=0.5"})
+    with urlopen(request, timeout=60) as response:
         if int(response.headers.get("Content-Length", "0")) > MAX_BYTES:
-            raise ValueError("Response exceeds the maximum PDF size")
-        payload = response.read(MAX_BYTES + 1)
-    if len(payload) > MAX_BYTES:
-        raise ValueError("Response exceeds the maximum PDF size")
-    return payload
+            raise ValueError("Oversized response")
+        result = response.read(MAX_BYTES + 1)
+    if len(result) > MAX_BYTES:
+        raise ValueError("Oversized response")
+    return result
 
 
-def attempt(record):
-    target = DEST / record["filename"]
-    expected = record["sha256"]
-    if target.is_file() and sha256(target.read_bytes()) == expected:
-        return "already_installed", None
-
-    errors = []
-    for source in record["sources"]:
-        for insecure in (False, True) if source.startswith("https://users.cms.caltech.edu/") else (False,):
+def install_absent(path: Path, record: dict) -> tuple[str, str]:
+    """Create only if absent. os.link raises FileExistsError on a race."""
+    errors: list[str] = []
+    for url in record.get("sources", []):
+        tmp_path = None
+        try:
+            data = download(url)
+            if not valid_pdf(data) or len(data) != record["bytes"] or sha256(data) != record["sha256"]:
+                errors.append("Source does not match pinned PDF: " + url)
+                continue
+            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".journal-", suffix=".part", delete=False) as f:
+                f.write(data)
+                tmp_path = Path(f.name)
             try:
-                payload = download(source, insecure=insecure)
-                if len(payload) != record["bytes"]:
-                    errors.append("size mismatch")
-                    continue
-                if not payload.startswith(b"%PDF-") or b"%%EOF" not in payload[-4096:]:
-                    errors.append("invalid PDF")
-                    continue
-                if sha256(payload) != expected:
-                    errors.append("SHA-256 mismatch")
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as tmp:
-                    tmp.write(payload)
-                    temporary = Path(tmp.name)
-                temporary.replace(target)
-                return "installed", None
-            except (OSError, ValueError, urllib.error.URLError) as exc:
-                errors.append(type(exc).__name__ + ": " + str(exc)[:140])
-    return "retained_existing", "; ".join(errors[:4])
+                os.link(tmp_path, path)  # no replacement of existing targets
+                return "installed_missing", url
+            except FileExistsError:
+                return "concurrent_target_exists", "Target appeared during import"
+        except Exception as exc:
+            errors.append(type(exc).__name__ + ": " + str(exc)[:160])
+        finally:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
+    return "missing_import_failed", "; ".join(errors[:4])
 
 
-def main():
-    records = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    if len(records) != 4 or len(set(r["arxiv"] for r in records)) != 4:
-        raise ValueError("Expected four unique journal records")
-    statuses = []
+def run(mode: str, root: Path = ROOT) -> dict:
+    records = json.loads((root / ".github/journal_pdf_sources.json").read_text("utf-8"))
+    if not isinstance(records, list):
+        raise ValueError("Expected a list of journal pins")
+    folder = root / "research/papers"
+    if folder.is_symlink():
+        raise ValueError("PDF archive must not be a symlink")
+    if mode == "import_missing":
+        folder.mkdir(parents=True, exist_ok=True)
+    seen = set()
+    rows = []
     for record in records:
-        name = record["filename"]
-        if not name.endswith(".pdf") or "/" in name or "\\" in name or ".." in name:
-            raise ValueError("Invalid target name")
-        status, error = attempt(record)
-        entry = {
-            "arxiv": record["arxiv"],
-            "filename": name,
-            "expected_sha256": record["sha256"],
-            "status": status,
-        }
-        if error:
-            entry["note"] = error
-        statuses.append(entry)
-        print(record["arxiv"], status, error or "", flush=True)
-    REPORT.write_text(json.dumps(statuses, indent=2) + "\n", encoding="utf-8")
-    with open(os.environ.get("GITHUB_STEP_SUMMARY", os.devnull), "a", encoding="utf-8") as file:
-        for r in statuses:
-            file.write("- " + r["arxiv"] + ": " + r["status"] + "\n")
-        file.write("Exact uploaded bytes are required. Failed downloads NEVER replace the existing PDF.\n")
+        name, aid = record["filename"], record["arxiv"]
+        if (not isinstance(name, str) or not PDF_NAME.fullmatch(name) or
+                aid in seen or not isinstance(record["sha256"], str) or
+                not SHA256.fullmatch(record["sha256"]) or
+                type(record["bytes"]) is not int or record["bytes"] < 5120):
+            raise ValueError("Invalid or duplicate journal entry: " + str(aid))
+        seen.add(aid)
+        target = folder / name
+        detail = ""
+        if target.is_symlink():
+            status = "symlink_refused"
+        elif target.exists():
+            if not target.is_file():
+                status = "not_regular_file"
+            else:
+                actual = target.read_bytes()
+                detail = "Observed SHA-256: " + sha256(actual)
+                status = ("journal_sha256_match" if
+                          (valid_pdf(actual) and len(actual) == record["bytes"] and
+                           sha256(actual) == record["sha256"]) else "journal_mismatch_preserved")
+        elif mode == "import_missing":
+            status, detail = install_absent(target, record)
+        else:
+            status = "missing"
+        rows.append({
+            "arxiv": aid, "filename": name, "status": status,
+            "sha256_expected": record["sha256"], "size_expected": record["bytes"], "detail": detail,
+        })
+        print(aid, status, flush=True)
+    return {
+        "schema": "journal-manual-audit-v1",
+        "audited_at_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": os.environ.get("GITHUB_SHA", "local"),
+        "github_run_id": os.environ.get("GITHUB_RUN_ID", "local"),
+        "mode": mode,
+        "ok": all(row["status"] in ("journal_sha256_match", "installed_missing") for row in rows),
+        "records": rows,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("audit", "import_missing"), default="audit")
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    result = run(args.mode)
+    content = json.dumps(result, indent=2) + "\n"
+    if args.report:
+        target = args.report.resolve()
+        if target == ROOT or ROOT in target.parents:
+            parser.error("Report location must be outside the repository")
+        target.write_text(content, encoding="utf-8")
+    else:
+        print(content)
+    return 0 if result["ok"] else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

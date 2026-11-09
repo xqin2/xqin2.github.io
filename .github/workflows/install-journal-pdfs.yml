@@ -1,35 +1,68 @@
-name: Install matching journal-version PDFs
+name: Controlled journal PDF import
+
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/journal_pdf_sources.json'
-      - '.github/scripts/install_journal_pdfs.py'
-      - '.github/workflows/install-journal-pdfs.yml'
-permissions:
-  contents: write
-concurrency:
-  group: journal-pdf-install
-  cancel-in-progress: false
+    inputs:
+      mode:
+        description: "Read-only audit (default), or only install missing hash-matched files"
+        type: choice
+        options:
+          - audit
+          - import_missing
+        required: true
+        default: audit
+
 jobs:
-  install:
+  audit:
+    if: ${{ inputs.mode == 'audit' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - name: Check out public homepage
+      - name: Checkout without write credentials
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Install only hash-verified exact journal PDFs
-        run: python3 .github/scripts/install_journal_pdfs.py
-      - name: Commit successfully installed PDFs
+        with:
+          persist-credentials: false
+      - name: Read-only integrity check
+        run: python3 .github/scripts/install_journal_pdfs.py --mode audit --report "$RUNNER_TEMP/journal-audit.json"
+      - name: Preserve separate audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/journal-audit.json
+          if-no-files-found: warn
+          retention-days: 90
+  import_missing:
+    if: ${{ inputs.mode == 'import_missing' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: journal-import
+      cancel-in-progress: false
+    steps:
+      - name: Checkout public repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Import only missing SHA-pinned PDFs
+        run: python3 .github/scripts/install_journal_pdfs.py --mode import_missing --report "$RUNNER_TEMP/journal-import.json"
+      - name: Preserve independent import report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-import-${{ github.run_id }}
+          path: ${{ runner.temp }}/journal-import.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Commit new files only
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/papers/ .github/journal_pdf_status.json
-          if git diff --cached --quiet; then
-            echo "No new verified PDFs." >> "$GITHUB_STEP_SUMMARY"
-          else
-            git commit -m "Install exact verified journal PDF versions"
+          git add -- research/papers/
+          if ! git diff --cached --quiet; then
+            git diff --cached --name-status | awk '$1 != "A" { exit 1 }'
+            git commit -m "Import missing SHA-256 verified journal PDF"
             git push origin HEAD:main
           fi
